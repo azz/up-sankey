@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ResponsiveSankey as Sankey } from "@nivo/sankey";
 import addMonths from "date-fns/addMonths";
 import format from "date-fns/format";
 import { getSankeyData } from "data";
+import toast from "react-hot-toast";
 
 const currency = new Intl.NumberFormat("en-AU", {
   style: "currency",
@@ -12,33 +13,40 @@ const currency = new Intl.NumberFormat("en-AU", {
 function App() {
   const [token, setToken] = useState(sessionStorage.getItem("token") || "");
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [includeUncategorised, setIncludeUncategorised] = useState(true);
-  const [include2Up, setInclude2Up] = useState(true);
+  const [include2Up, setInclude2Up] = useState(false);
   const [startDate, setStartDate] = useState(addMonths(new Date(), -1));
   const [endDate, setEndDate] = useState(new Date());
 
-  useEffect(() => {
+  function fetchData(event) {
+    event.preventDefault();
     sessionStorage.setItem("token", token);
     if (!token) return;
-    setData(null);
-    setLoading(true);
-    getSankeyData({
-      token,
-      startDate,
-      endDate,
-      includeUncategorised,
-      include2Up,
-    })
-      .then(setData)
-      .catch((error) => {
-        alert("An error occurred while loading data: " + error.message);
-      })
-      .finally(() => setLoading(false));
-  }, [token, startDate, endDate, includeUncategorised, include2Up]);
+
+    toast.promise(
+      getSankeyData({
+        token,
+        startDate,
+        endDate,
+        includeUncategorised,
+        include2Up,
+      }).then((responseData) => {
+        setData(responseData);
+        return responseData;
+      }),
+      {
+        loading: "Loading transactions...",
+        success: (data) => `Loaded ${data.transactionCount} transactions.`,
+        error: (error) => {
+          console.error(error);
+          return `Error occurred while loading data: ${error.message}`;
+        },
+      }
+    );
+  }
 
   return (
-    <div className="App flex flex-col h-screen">
+    <div className="App flex flex-col h-screen bg-dark-blue text-white">
       <header className="items-end flex flex-row">
         <img
           className="inline px-1"
@@ -47,10 +55,11 @@ function App() {
           alt="Up API"
           src="https://developer.up.com.au/static/token-18df4d86f1e1fd5c90883ea927fbfb73.gif"
         />{" "}
-        <h1 className="text-3xl px-1">Up Sankey</h1>
+        <h1 className="text-3xl px-1 text-orange">Up Sankey</h1>
         <form className="px-1">
           Using my <PAT /> of{" "}
           <input
+            className="bg-blue text-pink font-bold p-1 rounded-sm"
             type="password"
             placeholder="up:yeah:..."
             value={token}
@@ -58,9 +67,10 @@ function App() {
               event.target.setSelectionRange(0, event.target.value.length)
             }
             onChange={(event) => setToken(event.target.value)}
-          ></input>
-          , show transactions from{" "}
+          ></input>{" "}
+          show transactions from{" "}
           <input
+            className="bg-blue text-pink font-bold p-1 rounded-sm"
             type="date"
             value={formatDate(startDate)}
             max={formatDate(endDate)}
@@ -68,13 +78,20 @@ function App() {
           ></input>{" "}
           to{" "}
           <input
+            className="bg-blue text-pink font-bold p-1 rounded-sm"
             type="date"
             value={formatDate(endDate)}
             min={formatDate(startDate)}
             max={formatDate(new Date())}
             onChange={(event) => setEndDate(event.target.valueAsDate)}
-          ></input>
-          ,{" "}
+          ></input>{" "}
+          <button
+            className="bg-orange text-yellow p-1 mx-1 rounded-sm"
+            onClick={fetchData}
+          >
+            Let’s go!
+          </button>{" "}
+          Options:{" "}
           <label>
             <input
               type="checkbox"
@@ -97,15 +114,18 @@ function App() {
       </header>
 
       <main className="flex-grow m-2 text-center">
-        {loading && <h2 className="m-4">Loading...</h2>}
-        {data == null && !loading && (
-          <h2 className="m-4">
-            👋 Welcome. Grab your <PAT /> and paste it in the text box above.
-            Your token will never be sent anywhere other than the Up APIs, and
-            none of your financial data will be stored.
+        {data == null && (
+          <h2 className="m-4 text-pink">
+            👋 Welcome. This is a tool to view your financial transactions in a{" "}
+            <Link href="https://en.wikipedia.org/wiki/Sankey_diagram">
+              Sankey diagram
+            </Link>
+            . Grab your <PAT /> and paste it in the text box above. Your token
+            will never be sent anywhere other than the Up API, and none of your
+            financial data will be stored.
           </h2>
         )}
-        {data != null && !loading && (
+        {data != null && (
           <Sankey
             isInteractive
             data={data}
@@ -130,20 +150,38 @@ function App() {
           />
         )}
       </main>
+
+      <footer className="p-1 text-center">
+        <small>
+          Built by{" "}
+          <Link
+            className="text-yellow underline"
+            href="https://twitter.com/lucasazzola"
+          >
+            @lucasazzola
+          </Link>
+          . Code on <Link href="https://github.com/azz/up-sankey">GitHub</Link>.
+        </small>
+      </footer>
     </div>
   );
 }
 
+function Link(props) {
+  // eslint-disable-next-line jsx-a11y/anchor-has-content
+  return <a className="text-yellow underline" {...props} />;
+}
+
 function PAT() {
   return (
-    <a
-      className="text-blue-400"
+    <Link
+      className="text-yellow underline"
       href="https://api.up.com.au/"
       target="_blank"
       rel="noreferrer"
     >
       personal access token
-    </a>
+    </Link>
   );
 }
 

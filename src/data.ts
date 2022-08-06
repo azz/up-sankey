@@ -1,3 +1,4 @@
+import { DefaultLink, DefaultNode } from "@nivo/sankey";
 import groupBy from "lodash/groupBy";
 import mapValues from "lodash/mapValues";
 import sumBy from "lodash/sumBy";
@@ -5,14 +6,16 @@ import map from "lodash/map";
 import zipObject from "lodash/zipObject";
 import sortBy from "lodash/sortBy";
 import {
+  AccountsAccountIdTransactionsGetRequest,
   AccountsApi,
+  BaseAPI,
   CategoriesApi,
   Configuration,
   DefaultConfig,
+  ListTransactionsResponse,
   TransactionResource,
   TransactionsApi,
 } from "./up-api";
-import { DefaultLink, DefaultNode } from "@nivo/sankey";
 
 const accountsApi = new AccountsApi();
 const transactionsApi = new TransactionsApi();
@@ -47,7 +50,7 @@ export async function getSankeyData(opts: {
 
   const transactions: TransactionResource[] = [];
   for (const account of transactionalAccounts) {
-    const { data } = await transactionsApi.accountsAccountIdTransactionsGet({
+    const data = await getPaginatedTransactions({
       accountId: account.id,
       filterSince: opts.startDate,
       filterUntil: opts.endDate,
@@ -90,16 +93,19 @@ export async function getSankeyData(opts: {
   );
   const savings = transactions.filter(
     (txn) =>
-      txn.attributes.amount.valueInBaseUnits < 0 &&
       txn.relationships.transferAccount.data != null &&
       accounts.data.find(
         (account) => account.id === txn.relationships.transferAccount.data.id
-      ).attributes.accountType === "SAVER"
+      )?.attributes.accountType === "SAVER"
   );
   const salaries = transactions.filter(
     (txn) =>
       txn.attributes.amount.valueInBaseUnits > 0 &&
-      txn.relationships.transferAccount.data == null
+      txn.relationships.transferAccount.data == null &&
+      // exclude some non-salary incomings from deleted savers and Up-to-Up payments
+      !txn.attributes.description?.startsWith("Transfer from ") &&
+      !txn.attributes.description?.startsWith("Final interest payment from ") &&
+      !txn.attributes.description?.startsWith("$")
   );
 
   const groupedTransactions = groupBy(
@@ -134,6 +140,10 @@ export async function getSankeyData(opts: {
       (transaction) => -transaction.attributes.amount.valueInBaseUnits
     )
   );
+  for (const key in savingsTotals) {
+    if (savingsTotals[key] <= 0) delete savingsTotals[key];
+  }
+
   const savingsLinks = sortByValue(
     map(savingsTotals, (total, accountId) => ({
       value: total,
@@ -187,6 +197,7 @@ export async function getSankeyData(opts: {
       ...nodesFromLinks(categoryLinks),
       ...nodesFromLinks(savingsLinks),
     ],
+    transactionCount: transactions.length,
   };
 }
 
@@ -201,4 +212,37 @@ function nodesFromLinks(
   return links.map((link) => ({
     id: byTarget ? link.target : link.source,
   }));
+}
+
+class PaginatedAPI extends BaseAPI {
+  async getNext<T>(apiLinks: { next: string }) {
+    const token = this.configuration.accessToken;
+    const tokenString = await token("bearer_auth", []);
+    const response = await this.request({
+      path: apiLinks.next.replace(this.configuration.basePath, ""),
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenString}` },
+    });
+    return (await response.json()) as T;
+  }
+}
+
+const client = new PaginatedAPI();
+
+async function getPaginatedTransactions(
+  request: AccountsAccountIdTransactionsGetRequest
+) {
+  const transactions: TransactionResource[] = [];
+  let { data, links } = await transactionsApi.accountsAccountIdTransactionsGet(
+    request
+  );
+  transactions.push(...data);
+
+  while (links.next) {
+    const next = await client.getNext<ListTransactionsResponse>(links);
+    transactions.push(...next.data);
+    links = next.links;
+  }
+
+  return transactions;
 }
