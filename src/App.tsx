@@ -49,16 +49,7 @@ function App() {
         />{" "}
         <h1 className="text-3xl px-1">Up Sankey</h1>
         <form className="px-1">
-          Using my{" "}
-          <a
-            className="text-blue-400"
-            href="https://api.up.com.au/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            personal access token
-          </a>{" "}
-          of{" "}
+          Using my <PAT /> of{" "}
           <input
             type="password"
             placeholder="up:yeah:..."
@@ -105,8 +96,15 @@ function App() {
         </form>
       </header>
 
-      <main className="flex-grow m-2">
-        {loading && <h2>Loading...</h2>}
+      <main className="flex-grow m-2 text-center">
+        {loading && <h2 className="m-4">Loading...</h2>}
+        {data == null && !loading && (
+          <h2 className="m-4">
+            👋 Welcome. Grab your <PAT /> and paste it in the text box above.
+            Your token will never be sent anywhere other than the Up APIs, and
+            none of your financial data will be stored.
+          </h2>
+        )}
         {data != null && !loading && (
           <Sankey
             isInteractive
@@ -133,6 +131,19 @@ function App() {
         )}
       </main>
     </div>
+  );
+}
+
+function PAT() {
+  return (
+    <a
+      className="text-blue-400"
+      href="https://api.up.com.au/"
+      target="_blank"
+      rel="noreferrer"
+    >
+      personal access token
+    </a>
   );
 }
 
