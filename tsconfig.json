@@ -1,0 +1,12 @@
+{
+  "include": ["src"],
+  "compilerOptions": {
+    "rootDir": "src",
+    "baseUrl": "src",
+    "jsx": "react-jsx",
+    "target": "es2015",
+    "moduleResolution": "node",
+    "module": "es2020",
+    "allowSyntheticDefaultImports": true
+  }
+}
