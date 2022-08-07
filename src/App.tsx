@@ -104,13 +104,7 @@ function App() {
             max={formatDate(new Date())}
             onChange={(event) => setEndDate(event.target.valueAsDate)}
           ></input>{" "}
-          <button
-            className="bg-orange text-yellow p-1 mx-1 rounded-sm"
-            onClick={fetchData}
-          >
-            Let’s go!
-          </button>{" "}
-          Options:{" "}
+          <Button onClick={fetchData}>Let’s go!</Button> Options:{" "}
           <label>
             <input
               type="checkbox"
@@ -154,9 +148,7 @@ function App() {
           ))}
         </ul>
         <form method="dialog" className="text-end">
-          <button className="bg-orange text-yellow mt-1 p-1 rounded-sm">
-            Close
-          </button>
+          <Button>Close</Button>
         </form>
       </dialog>
 
@@ -230,6 +222,15 @@ function PAT() {
     >
       personal access token
     </Link>
+  );
+}
+
+function Button(props) {
+  return (
+    <button
+      className="bg-orange text-yellow p-1 mx-1 rounded-sm hover:bg-pink hover:cursor-pointer active:text-blue active:bg-pink"
+      {...props}
+    />
   );
 }
 
