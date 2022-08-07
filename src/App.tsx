@@ -1,9 +1,15 @@
-import { useState } from "react";
-import { ResponsiveSankey as Sankey } from "@nivo/sankey";
+import { useRef, useState } from "react";
+import {
+  ResponsiveSankey as Sankey,
+  SankeyLinkDatum,
+  SankeyMouseHandler,
+} from "@nivo/sankey";
 import addMonths from "date-fns/addMonths";
 import format from "date-fns/format";
-import { getSankeyData } from "data";
+import parseISO from "date-fns/parseISO";
+import { getSankeyData, Link as SankeyLink, Node } from "data";
 import toast from "react-hot-toast";
+import { TransactionResource } from "up-api";
 
 const currency = new Intl.NumberFormat("en-AU", {
   style: "currency",
@@ -15,13 +21,18 @@ function App() {
   const [data, setData] = useState(null);
   const [includeUncategorised, setIncludeUncategorised] = useState(true);
   const [include2Up, setInclude2Up] = useState(false);
+  const [transactions, setTransactions] = useState<TransactionResource[]>([]);
   const [startDate, setStartDate] = useState(addMonths(new Date(), -1));
   const [endDate, setEndDate] = useState(new Date());
+
+  const dialogRef = useRef<HTMLDialogElement>();
 
   function fetchData(event) {
     event.preventDefault();
     sessionStorage.setItem("token", token);
     if (!token) return;
+
+    setTransactions([]);
 
     toast.promise(
       getSankeyData({
@@ -45,8 +56,16 @@ function App() {
     );
   }
 
+  const handleClick: SankeyMouseHandler = (event) => {
+    const linkEvent = event as SankeyLinkDatum<Node, SankeyLink>;
+    if (linkEvent.transactions) {
+      setTransactions(linkEvent.transactions);
+      dialogRef.current?.showModal();
+    }
+  };
+
   return (
-    <div className="App flex flex-col h-screen bg-dark-blue text-white">
+    <div className="App flex flex-col h-screen bg-dark-blue text-white overflow-hidden">
       <header className="items-end flex flex-row">
         <img
           className="inline px-1"
@@ -113,6 +132,34 @@ function App() {
         </form>
       </header>
 
+      <dialog
+        className="m-auto	max-w-4xl bg-yellow"
+        ref={dialogRef}
+        onClose={() => setTransactions([])}
+      >
+        <h2 className="text-2xl text-pink font-bold">Transactions</h2>
+        <ul className="list-disc list-inside">
+          {transactions.map((transaction) => (
+            <li key={transaction.id}>
+              {(transaction.attributes.createdAt instanceof Date
+                ? transaction.attributes.createdAt
+                : parseISO(transaction.attributes.createdAt)
+              ).toLocaleDateString()}{" "}
+              &middot;{" "}
+              {currency.format(
+                transaction.attributes.amount.valueInBaseUnits / 100
+              )}{" "}
+              &middot; {transaction.attributes.description}
+            </li>
+          ))}
+        </ul>
+        <form method="dialog" className="text-end">
+          <button className="bg-orange text-yellow mt-1 p-1 rounded-sm">
+            Close
+          </button>
+        </form>
+      </dialog>
+
       <main className="flex-grow m-2 text-center">
         {data == null && (
           <h2 className="m-4 text-pink">
@@ -147,6 +194,7 @@ function App() {
               tooltip: { container: { color: "black" } },
               labels: { text: { fontWeight: "bold" } },
             }}
+            onClick={handleClick}
           />
         )}
       </main>

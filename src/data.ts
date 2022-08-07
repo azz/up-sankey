@@ -21,13 +21,19 @@ const accountsApi = new AccountsApi();
 const transactionsApi = new TransactionsApi();
 const categoriesApi = new CategoriesApi();
 
+export interface Link extends DefaultLink {
+  transactions?: TransactionResource[];
+}
+
+export interface Node extends DefaultNode {}
+
 export async function getSankeyData(opts: {
   token: string;
   startDate: Date;
   endDate: Date;
   includeUncategorised: boolean;
   include2Up: boolean;
-}) {
+}): Promise<{ nodes: Node[]; links: Link[]; transactionCount: number }> {
   if (!opts.token.startsWith("up:yeah:")) {
     throw new Error("That doesn't look like a valid Up personal access token.");
   }
@@ -127,6 +133,7 @@ export async function getSankeyData(opts: {
       value: total,
       source: spendingNode.id,
       target: categoriesById[categoryId].attributes.name,
+      transactions: groupedTransactions[categoryId],
     }))
   );
 
@@ -143,12 +150,12 @@ export async function getSankeyData(opts: {
   for (const key in savingsTotals) {
     if (savingsTotals[key] <= 0) delete savingsTotals[key];
   }
-
   const savingsLinks = sortByValue(
     map(savingsTotals, (total, accountId) => ({
       value: total,
       source: savingNode.id,
       target: accountsById[accountId].attributes.displayName,
+      transactions: groupedSavings[accountId],
     }))
   );
 
@@ -167,6 +174,7 @@ export async function getSankeyData(opts: {
       value: total,
       source: description,
       target: salaryNode.id,
+      transactions: groupedSalaries[description],
     }))
   );
 
@@ -208,7 +216,7 @@ function sortByValue(links: DefaultLink[]): DefaultLink[] {
 function nodesFromLinks(
   links: DefaultLink[],
   byTarget: boolean = true
-): DefaultNode[] {
+): Node[] {
   return links.map((link) => ({
     id: byTarget ? link.target : link.source,
   }));

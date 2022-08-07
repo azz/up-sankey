@@ -7,3 +7,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+dialog::backdrop {
+  background-color: rgba(30, 30, 30, 0.8);
+}
